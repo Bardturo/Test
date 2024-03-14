@@ -1,0 +1,487 @@
+---
+title: "\\fontsize{14pt}{3pt}\\selectfont \\textbf{\\textit{Data Task}}"
+author: "\\fontsize{12pt}{3pt}\\selectfont Arturo Bardales"
+date: "\\fontsize{12pt}{3pt}\\selectfont `r Sys.Date()`"
+output:
+  pdf_document:
+    keep_tex: yes
+    fig_caption: yes
+mainfont: Times New Roman
+fontsize: 12pt
+header-includes:
+    \usepackage{fvextra}
+    \DefineVerbatimEnvironment{Highlighting}{Verbatim}{
+      breaksymbolleft={},
+      showspaces = false,
+      showtabs = false,
+      breaklines,
+      commandchars=\\\{\}
+    }
+  \usepackage{geometry}
+  \usepackage{amsmath}
+  \usepackage{subcaption}
+  \usepackage{amssymb}
+  \usepackage{enumitem}
+  \usepackage{fancyhdr}
+  \usepackage{tikz}
+  \usepackage{placeins}
+  \usetikzlibrary{trees}
+  \usepackage{titlesec}
+  \pagestyle{fancy}
+  \usepackage{titling}
+    \pretitle{\begin{flushright}}
+    \posttitle{\end{flushright}}  
+    \preauthor{\begin{flushright}}
+    \postauthor{\end{flushright}}  
+    \predate{\begin{flushright}}
+    \postdate{\end{flushright}}
+    \setlength{\droptitle}{-1.1in}
+---
+
+\vspace{-30pt}
+
+\titlespacing{\section}{0pt}{*4}{*1.5}
+\titlespacing{\subsection}{20pt}{*4}{*1.5}
+\titlespacing{\subsubsection}{40pt}{*4}{*1.5}
+\titlespacing{\subsubsubsection}{60pt}{*4}{*1.5}
+
+
+
+```{r, setup, include = F}
+#To run the code in this RMD file, change the file directory in normalizePath() to the directory with the data task CSV files, and install any packages used.
+knitr::opts_knit$set(root.dir = normalizePath("C:/Users/Arturo/Documents/R/data")) #Setting work directory
+knitr::opts_chunk$set(warning = F, message = F, echo = T, tidy = "styler") #Remove code, warnings, messages from pdf
+options("tinytable_print_output"="markdown")
+
+library(ggplot2) #Graphs
+library(tidytable) #Data management
+library(stringr) #Data management with regex
+library(lubridate) #Date conversion
+library(tinytable) #Tables
+library(patchwork) #Table and graph arrangement
+library(modelsummary) #Summary tables
+
+options(scipen = 999) #Prevent scientific notation
+```
+
+```{r, include = F}
+#We borrow a custom ggplot theme by Koundinya Desiraju on rpubs (https://rpubs.com/Koundy/71792)
+theme_Publication <- function(base_size = 14, base_family = "serif") {
+      library(grid)
+      library(ggthemes)
+      (theme_foundation(base_size = base_size, base_family = base_family) #Define size and family of font
+       + theme(plot.title = element_text(face = "bold", #Title characteristics for typeface, size, and horizontal spacing
+                                         size = rel(1.2), hjust = 0.5),
+               text = element_text(), #Text is text
+               panel.background = element_rect(colour = NA), #Define panel background color
+               plot.background = element_rect(colour = NA), #Define plot background color
+               panel.border = element_rect(colour = NA), #Color of panel border
+               axis.title = element_text(face = "bold",size = rel(1)), #Axis title text characteristics, typeface and size
+               axis.title.y = element_text(angle=90,vjust =2), #Y axis title characteristics, angle and vertical spacing
+               axis.title.x = element_text(vjust = -0.2), #X axis title characteristics, vertical spacing
+               axis.text = element_text(), #Axis text is text
+               axis.line = element_line(colour="black"), #Axis lines coloring
+               axis.ticks = element_line(), #Axis ticks are present
+               panel.grid.major = element_line(colour="#f0f0f0"), #Major tick marks are grey
+               panel.grid.minor = element_blank(), #Minor tick marks are removed
+               legend.key = element_rect(colour = NA), #Legend coloring is removed
+               legend.position = "bottom", #Legend position is bottom of the plot
+               legend.direction = "horizontal", #Legend direction spreads horizontally
+               legend.key.size= unit(0.2, "cm"), #Size of Legend key
+               legend.spacing = unit(0, "cm"), #Spacing of Legend
+               legend.title = element_text(face="italic"), #title of legend, typeface Italics
+               plot.margin=unit(c(10,5,5,5),"mm"), #Margin of plot
+               strip.background=element_rect(colour="#f0f0f0",fill="#f0f0f0"), #Background strips as grey
+               strip.text = element_text(face="bold") #Text strip typeface as bold
+          ))
+      
+}
+```
+
+```{r, Reading Data}
+test = fread("test_childcare_data.csv") #Reading data as tidytable object
+```
+
+# Description of the Task
+
+The following is a coding task I have completed for a different position's application process. The data is simulated information from a particular childcare center's work shifts and child visits. Each row in the data represents a child's stay at the center, including information on their caregiver, their check-in and pick-up times, and their caregiver's shift times. There is a small sample of the data at the bottom of the page.
+
+```{=latex}
+%% This table appears at the bottom of the page in the knitted output.
+\begin{table}
+\begin{center}
+\begin{tblr}{
+  colspec={Q[]Q[]Q[]Q[]Q[]Q[]},
+  row{even}={bg=black!5!white},
+}
+\toprule
+Stay Num & Caregiver Name & Shift ID & Check-in Time & $\cdots$ \\
+\midrule
+1 & Andrew & 17may1982 1 p.m. to 10 p.m. & 1982-05-17 14:47:00 & $\cdots$ \\
+2 & Andrew & 14jul1982 1 p.m. to 10 p.m. & 1982-07-14 17:49:00 & $\cdots$ \\
+3 & Andrew & 30jun1982 11 a.m. to 8 p.m. & 1982-06-30 13:02:00 & $\cdots$ \\
+4 & Andrew & 21may1982 6 a.m. to 4 p.m. & 1982-05-21 10:51:00 & $\cdots$ \\
+\bottomrule
+\end{tblr}
+\end{center}
+\end{table}
+```
+
+A few facts bear mentioning of the simulated data: if a child is not picked up by the end of their caregiver's shift, the caregiver must work overtime until that child is picked up. If a child arrives when no caregiver is available, the child must wait with an accompanying adult until a caregiver is available.
+
+# Section 1
+
+In this section, I would like to find the percentage of children who wait for an available caregiver and the percentage who are picked up after their caregiver's shift ends.
+
+First, we need to construct two variables for the beginning and end times of a caregiver's shift. These new variables will provide us a point of comparison to the pick up and check in times for each child.
+
+```{r}
+test = test |> 
+  mutate(shift_start_day = dmy(str_extract(shiftid, r"([\d\w]+(?= ))")), #Extracting the day the shift starts using regular expression
+         shift_start_time = str_extract(shiftid, r"((?<= )[\w\d\. ]+(?=to))"), #Extracting start time using regular expression
+         shift_end_time = str_extract(shiftid, r"((?<=to )[\w\d\. ]+)")) #extracting end time using regular expresison
+```
+
+```{r, eval = F}
+#checking the values of the start and end shift times for problematic values
+test |>
+  distinct(shift_start_time)
+test |>
+  distinct(shift_end_time)
+#We find that shift_end_time contains "noon" rather than a number.
+```
+
+```{r}
+test = test |> 
+         mutate(across(c(shift_start_time, shift_end_time), #Obtaining the hour of the start and end time
+                ~case_when(str_detect(., "p.m.") ~ as.numeric(str_extract(., r"(^[\d]+)")) + 12, #extract all digits before the first different character (a space in this case) and add 12, if time is PM
+                           str_detect(., "a.m.") ~ as.numeric(str_extract(., r"(^[\d]+)")), #extract all digits before the first different character (a space in this case), if time is AM
+                           str_detect(., "12 p.m.") ~ 12, #letting noon be 12
+                           str_detect(., "noon") ~ 12, #letting noon be 12
+                           str_detect(., "12 a.m.") ~ 0 #letting midnight be 0
+                           )),
+         shift_end_day = as.character(ifelse(shift_end_time < shift_start_time, shift_start_day + 1, shift_start_day)), #Making a day for the end of the shift, for when the shift crosses midnight
+         shift_start_day = as.character(shift_start_day)) #making a day for the beginning of the shift. this is the always same as the day included in the shiftid variable
+
+test = test |> 
+  mutate(shift_end_time = ymd_hms(paste0(shift_end_day, " ", shift_end_time, ":00:00")), #creating a shift_end_time variable including both day and hour
+         shift_start_time = ymd_hms(paste0(shift_start_day, " ", shift_start_time, ":00:00")), #creating a shift_start_time variable including both day and hour
+         pick_up_time = dmy_hms(pick_up_time), #converting pickup time to a date variable for manipulation and conditionals
+         check_in_time = dmy_hms(check_in_time)) #converting checkin time to a date variable for manipulation and conditionals
+```
+
+With our new shift start and end time variables, we can detect when a child arrives before the start of someone's shift, which implies that this child waited for the caregiver. However, this does not take into account if for some reason caregivers had a limit on the number of children they can care for at any one time. If there were a limit, then children would have to wait, even if they arrive during a caregiver's shift. Hence, this estimate of the percent of children who had to wait would be a lower bound for the true percentage. If there were no limit on the number of children that a caregiver could care for, then this would be the correct percentage. I assume that if the check in time and shift start time is the same, that a child does not need to wait.
+
+```{r}
+test |> 
+  summarize(`% of Visits with Child Waiting` = 100*sum(check_in_time < shift_start_time)/n(),
+            `% of Visits with Caregiver Overtime` = 100*sum(pick_up_time > shift_end_time)/n()) |> 
+  as.data.frame() |> 
+  tt() |> 
+  format_tt(digits = 4)
+```
+
+\FloatBarrier
+
+Note that this is an estimate of the number of *children* who needed to wait only if each stay is from different children. However, we may have the same child on multiple stays, and we cannot distinguish between children in the data (besides visit number).
+
+# Section 2
+
+In this section, I would like to calculate the number of children that arrive at the childcare center on a given day and the associated average booked stay hours.
+
+First, we need a day variable from $check\_in\_time$. With this day variable, we can find the number of children seen by counting up the number of rows associated with that day and calculate the average booked hours across rows with that day.
+
+```{r}
+test = test |> 
+  mutate(check_in_day = format(check_in_time, "%Y-%m-%d")) #create a day variable from the check_in_time
+
+test |> 
+  group_by(check_in_day) |> #group by check in day for each child
+  summarize(`Number of Children` = n(), #count of the number of children on each day
+            `Mean Booked Hours` = mean(booked_hours), #mean of booked hours for each day
+            `Median Booked Hours` = median(booked_hours)) |> #median of booked hours for each day
+  as.data.frame() |> 
+  tt(caption = "Number of Children Arriving at the Center on a Given Day") |> 
+  format_tt(
+    digits = 4,
+    j = 3,
+    markdown = T)
+```
+
+
+
+# Section 3
+
+In this section, I want to calculate the number of children under a caregiver's supervision at any moment in time during the caregiver's shift.
+
+I will create a time series dataframe containing a "census" count of the number of children under supervision at any given time for every 10 minutes in a caregiver's shift. To do this, I will create a list of dataframes containing each unique combination of caregiver and shift.
+
+```{r}
+test_grouping = test |> 
+  group_by(shift_start_day, caregiver_name) |> #Group by each combination of caregiver and shift. Note that every caregiver starts only one shift on any given day
+  select(contains("time"))
+  
+Dlist = list() #initialize a list which we will fill with dataframes of each day and shift for each caregiver
+for(i in 1:nrow(test_grouping |> count())){ #Number of unique combinations of shift start day and caregiver
+  Dlist[[i]] = test_grouping |> 
+    filter(cur_group_id() == i) #filter data to a particular combination of day and caregiver
+}
+```
+
+I will then create a 10-minute time sequence for each caregiver and shift. For each sequence, I will also record the number of children being cared for by that caregiver at each 10-minute point. I will store this information, along with the caregiver and shift start day of the sequence, in a nested list.
+
+```{r}
+interval <- 10 #10 minutes
+
+shift_sequences = list() #initialize an empty list
+for(i in 1:length(Dlist)){ #We loop on each unique combination of caregiver and shift
+  start_time = Dlist[[i]]$shift_start_time[1] #Extract the shift start time. this should be the same within each element of Dlist
+  end_time = Dlist[[i]]$shift_end_time[1] #Extract the shift end time. this should be the same within each element of Dlist
+  caregiver = Dlist[[i]]$caregiver_name[1] #Extract the caregiver name. this should be the same for each element of Dlist
+  date = Dlist[[i]]$shift_start_day[1] #Extract the shift start day. this should be the same for each element of Dlist
+  
+  time_sequence = seq(from=start_time, by=interval*60, to=end_time) #Create a sequence of time values from the beginning of a shift to the end of a shift which increases by 10 minutes
+  children = c() #Initialize an empty vector to contain the number of children being cared for
+  for(m in 1:length(time_sequence)){ #We loop on each element of our time sequence
+      children[m] = sum(Dlist[[i]]$pick_up_time >= time_sequence[m] & Dlist[[i]]$check_in_time <= time_sequence[m]) #We check the number of children for which the pickup time occurs after the given time value and the checkin time occurs before the given time value. This should plausibly give us a count of the number of children being cared for every ten minutes.
+  }
+  shift_sequences[[i]] = list(time_sequence, children, caregiver, date) #We save these four vectors (time sequence, number of children being cared for, caregiver name, and shift start day) as a list within the shift_sequences list. By the end, we have a list for each unique combination of caregiver and shift all stored within a list.
+  }
+  
+caregiver_names = test |> #Distinct caregiver names in the data
+  distinct(caregiver_name) |> 
+  pull(1)
+```
+
+Afterwards, I rearrange and condense the nested list. Now, rather than a nested list that corresponds to each unique combination of shift and caregiver, I will make the list elements unique to each caregiver, and each list element containing a list of information pertaining to their shifts.
+
+```{r}
+caregiver_shifts = vector(mode = "list", length = length(caregiver_names)) #initialize a new list
+for(j in 1:length(caregiver_names)){ #loop on each unique caregiver name. 43
+  for(i in 1:length(shift_sequences)){ #loop on each element of our previous list of time sequences. 530
+    if(shift_sequences[[i]][[3]] == caregiver_names[j]){ #Check if the name in this list corresponds to caregiver name j
+      caregiver_shifts[[j]] = caregiver_shifts[[j]] |> append(list(shift_sequences[[i]])) #if true, we append to our new nested list
+    }
+  }
+}
+```
+
+With this rearranged list, I now convert each list element in the nested list to a dataframe of time sequence, children census, caregiver, and shift start day.
+
+```{r}
+for(i in 1:length(caregiver_shifts)){ #loop on each element of previous nested list of caregivers
+  for(j in 1:length(caregiver_shifts[[i]])){ #Loop on each element within each caregiver list
+    temp = data.frame(caregiver_shifts[[i]][[j]]) |> as_tidytable() |> rename(time = 1, children = 2, caregiver = 3, day = 4) #convert list to a dataframe and tidytable. Rename columns to time, children, caregiver, and day
+    caregiver_shifts[[i]][[j]] = temp #save given list element as newly created dataframe
+  }
+}
+```
+
+Finally, we can simply rowbind all the dataframes to generate our final census dataset.
+
+```{r}
+shifts_dat = list() #initialize empty list
+for(i in 1:length(caregiver_shifts)){ #Loop on nested list of caregivers
+shifts_dat[[i]] = caregiver_shifts[[i]][[1]] #Store first shifts dataframe for a caregiver as the first element of a list
+  for(j in 2:length(caregiver_shifts[[i]])){  #loop on each element for each caregiver list
+    shifts_dat[[i]] = shifts_dat[[i]] |> 
+      rbind(caregiver_shifts[[i]][[j]], fill = T) #rowbind each dataframe pertaining to each caregiver and shift
+  }
+}
+
+#The previous operation generates a list of dataframes, each pertaining to a different caregiver
+
+census = shifts_dat[[1]] #Save first list element as an object
+for(i in 2:length(shifts_dat)){ #Loop on each element of new dataframe list
+  census = census |> 
+    rbind(shifts_dat[[i]], fill = T) #Row bind each dataframe in the new dataframe list
+}
+```
+
+The dataset is of the following form:
+
+```{r results = "asis"}
+head(census, 4) |> tt(theme = "striped") |> print("latex") #first 5 rows of the data
+```
+
+\FloatBarrier
+
+where $time$ represents a time value, $children$ represents the number of children being cared for by a given caregiver at the $time$ in the same row, and $day$ is the shift start day of the observation. $day$ and $caregiver$ uniquely identify all shifts. Now, we can plot a small graph of a few caregivers on (a) certain day(s). Let's graph 3 random days as an example.
+
+```{r}
+set.seed(1)
+#Select 3 random days
+N = nrow(census |> distinct(day)) #Distinct number of days
+indices = sample(N, 3) #Sample 3 days from the possible days
+days = census |>
+  distinct(day) |> #dataframe of all unique values of day
+  slice(indices) |> #select rows at the sampled indices
+  pull(day) #pull the day column as a vector
+```
+
+The following line plots represent the census count of children at any given 10-minute mark within a caregiver's shift. Each line corresponds to a different caregiver. Each plot corresponds to a different day. The lines simply connect the observation scatters and do not represent a model fit.
+
+```{r, fig.height= 4}
+#Graph data
+p1 = ggplot(census |> filter(day == days[1])) + #call ggplot object. Data is the census data but filtered to the first randomly chosen day
+  aes(x = time, y = children, group = caregiver) + #Aesthetic options. Set x, y, and grouping variable. Grouping by caregiver shows us how each caregiver's census values change across their shift, rather than across all caregivers
+  geom_line(aes(color = caregiver)) + #Call lineplot
+  geom_point(aes(color = caregiver)) + #Call scatterplot
+  scale_color_brewer(type = "qual", palette = "Set2") + #Change colors to be easier to make the plot easier to distinguish between caregivers
+  labs(title = paste0("Census of 3 shifts on ", days[1]), #Set the title and y axis labels
+       y = "Number of Children") +
+  theme_Publication() #Call custom ggplot theme
+```
+
+
+```{r, fig.height= 4}
+p2 = ggplot(census |> filter(day == days[2])) + #call ggplot object. Data is the census data but filtered to the second randomly chosen day
+  aes(x = time, y = children, group = caregiver) + #Aesthetic options. Set x, y, and grouping variable. Grouping by caregiver shows us how each caregiver's census values change across their shift, rather than across all caregivers
+  geom_line(aes(color = caregiver)) + #Call lineplot
+  geom_point(aes(color = caregiver)) + #Call scatterplot
+  scale_color_brewer(type = "qual", palette = "Set2") +  #Change colors to be easier to make the plot easier to distinguish between caregivers
+  labs(title = paste0("Census of 3 shifts on ", days[2]), #Set the title and y axis labels
+       y = "Number of Children") +
+  theme_Publication() #Call custom ggplot theme
+```
+
+
+```{r, fig.height= 4}
+p3 = ggplot(census |> filter(day == days[3])) + #call ggplot object. Data is the census data but filtered to thethird randomly chosen day
+  aes(x = time, y = children, group = caregiver) + #Aesthetic options. Set x, y, and grouping variable. Grouping by caregiver shows us how each caregiver's census values change across their shift, rather than across all caregivers
+  geom_line(aes(color = caregiver)) + #Call lineplot
+  geom_point(aes(color = caregiver)) + #Call scatterplot
+  scale_color_brewer(type = "qual", palette = "Set2") + #Change colors to be easier to make the plot easier to distinguish between caregivers
+  labs(title = paste0("Census of 3 shifts on ", days[3]), #Set the title and y axis labels
+       y = "Number of Children") +
+  theme_Publication() #Call custom ggplot theme
+```
+
+```{r, fig.height = 4}
+p1
+p2
+p3
+```
+\FloatBarrier
+
+As the shift closes, on average for any given caregiver, the census number increases up to a certain point and then decreases until the end of the shift. This trend seems almost universal, and no one seems to have more than one general peak census area or a particularly large number of children at the end of their shift (compared to the rest of their shift) -- most children do seem to be getting picked up before the end of a caregiver's shift. However, it seems interesting that caregivers must sometimes stay after their shift to care for a child who has not been picked up. The graphs show tremendous overlap between caregiver shifts. So why not shift responsibility for that child to the other caregiver? There does not appear to be a rule for how many children a caregiver can take care of at any given moment. At least, it is not clear from three graphs. Perhaps there is a limit around the maximum observed in the data.
+
+At any 10-minute mark (including start and end points) in a caregiver's shift, the maximum number of children observed under a caretakers supervision in the data is 17.
+
+```{r, eval = F}
+census |> 
+  summarize(max(children))
+```
+
+Alternatively, the maximum possible number of children that a caregiver can see throughout their entire shift is 30.
+
+```{r, eval = F}
+test |> 
+  group_by(shiftid, caregiver_name) |> 
+  count() |> 
+  ungroup() |> 
+  summarize(max(n))
+```
+
+# Section 4
+
+In this section, I want to explore whether parents are more likely to be late to pick up their child on certain weekdays and whether this difference is statistically significant.
+
+We need to create a variable that shows the amount of time elapsed between when a child was left with the caregiver and their pickup time. Importantly, the possibility of children arriving early, before a shift starts, needs to be considered, otherwise we overcount the time since the time elapsed between the early arrival and shift start would signify time where the child spent waiting with their parent, guardian, adult, etc.
+
+```{r}
+test = test |> 
+  mutate(early_arrival = ifelse(difftime(check_in_time, shift_start_time) < 0, 1, 0), #Binary variable checking if a child arrives early
+         actual_hours = ifelse(early_arrival == 1, difftime(pick_up_time, shift_start_time, units = "hours"), difftime(pick_up_time, check_in_time, units = "hours")),#hours elapsed between when a child is first being cared for and when they are picked up from the center
+         early_pickup = ifelse(difftime(pick_up_time, shift_start_time) < 0, 1, 0), #Binary variable checking if a child is picked up early
+         actual_hours = case_when(early_arrival == 1 & early_pickup == 1 ~ difftime(pick_up_time, pick_up_time, units = "hours"),
+                                  T ~ actual_hours)) #if someone leaves before a shift starts then no hours have elapsed with them gone and the child at the center. They were extra early!
+```
+
+To determine if someone was late to pick up their child, I will define late as picking up the child any time past the number of booked hours (for example, 1 minute late counts).
+
+```{r}
+test = test |> 
+  mutate(late = ifelse(actual_hours > booked_hours, 1, 0))
+```
+
+
+I will create two different days of the week variables: one will signify the day of the week when the child was dropped off, and the other will signify the day of the week when the child was picked up. These two variables should have tremendous overlap, but perhaps the subset of people that pick up their child on a different day shows an interesting pattern.
+
+```{r}
+test = test |> 
+  mutate(check_in_wday = weekdays(check_in_time), #Extract weekday from checkin time
+         pick_up_wday = weekdays(pick_up_time)) #extract weekday from pickup time
+```
+
+```{r, include = F}
+tab1 = test |> 
+  group_by(check_in_wday) |> 
+  summarize(`Percent Late` = 100*mean(late)) |> 
+  rename(`Weekday of Checkin` = check_in_wday) |> 
+  arrange(desc(`Percent Late`)) |> 
+  as.data.frame() |> 
+  tt() |> 
+  format_tt(digits = 4, markdown = T)
+tab2 = test |> 
+  group_by(pick_up_wday) |> 
+  summarize(`Percent Late` = 100*mean(late)) |> 
+  rename(`Weekday of Checkin` = pick_up_wday) |> 
+  arrange(desc(`Percent Late`)) |> 
+  as.data.frame() |> 
+  tt() |> 
+  format_tt(digits = 4, markdown = T)
+tab1_tex = print(tab1, "latex", file="ta.tex", floating=FALSE)
+tab2_tex = print(tab2, "latex", file="tb.tex", floating=FALSE)
+```
+
+```{r results='asis'}
+tab1_tex = str_remove_all(as.character(tab1_tex), r"((\\begin\{table\})|(\\end\{table\}))")
+tab2_tex = str_remove_all(as.character(tab2_tex), r"((\\begin\{table\})|(\\end\{table\}))")
+
+latex_code <- paste0(
+    "\\begin{table}[ht]\\centering\n",
+    "\\begin{subtable}{.5\\linewidth}\\centering\n",
+    tab1_tex, "\n",
+    "\\caption{Check in}\n",
+    "\\label{fig:sub1}\n",
+    "\\end{subtable}%\n",
+    "\\begin{subtable}{.5\\linewidth}\\centering\n",
+    tab2_tex, "\n",
+    "\\caption{Pick up}\n",
+    "\\label{fig:sub2}\n",
+    "\\end{subtable}\n",
+    "\\caption{Likelihood that a child is picked up late}\n",
+    "\\label{fig:composite}\n",
+    "\\end{table}"
+)
+
+# Printing the constructed LaTeX code
+cat(latex_code)
+```
+
+Regardless of whether we use the weekday of pickup and the weekday of checkin, we obtain similar results for the most likely days for a child to be picked up late. Specifically, the top four most likely days for a child to be picked up late, from largest to smallest likelihood, is Sunday (~30%), Thursday(~24%), Wednesday(~22%), and Monday. Sunday has a large lead: there is a difference of roughly $6-10\%$ between the Sunday and the other weekdays. For Thursday, there is a notable but smaller difference: $1-4\%$. Where the last 3 days of the week rank in the likelihood of a child being picked up late depends on the weekday variable.
+
+```{r}
+glm(late ~ check_in_wday, test, family = binomial("logit")) |> modelsummary(output = "kableExtra", stars = TRUE, 
+                title = "Relationship between Weekday and being picked up late at the Childcare center")
+```
+
+\FloatBarrier
+
+Each variable in the regression represents a binary variable for whether a given child stay happened on the corresponding weekday. For example, $`\ `Monday$ represents a binary variable for whether a stay occurred on Monday. The dependent variable is a binary variable for whether the child was picked up late, relative to their booked hours.
+
+Whether the difference between the most likely weekdays and less likely weekdays is statistically significant can be ascertained through a regression relating weekday and being late. The following is a logistic regression with uncorrected standard errors. Notice that the coefficient estimate for the binary Sunday variable is statistically significant at the $0.1%$ level, and the coefficient for Thursday is statistically significant at the $0.05$ level. This indicates that the difference in likelihood of a child being picked up late on these days compared to other days is statistically significant. There is stronger evidence this is the case for Sunday.
+
+# Section 5
+
+I would like to analyze the simulated data and compare its patterns to expectations we might have of real data.
+
+The amount of activity the childcare center receives throughout all hours of the day seems unrealistic. While a small number of hours near the start of the 24-hour day seem to not garner any child drop-offs, in general the rest of the day appears more busy than it would normally during late or early hours. In question 3 plots, the people working around midnight seem to have almost as much, if not more, activity than some people during daylight hours.
+
+In question 3 line plots, each person seems to have their own fair share of the childcare responsibility, which might also be unreasonable to assume. Maybe one person at the daycare center takes on much more responsibility on a given day, or there are different tasks that each caregiver does which would also affect their workload and census (a caregiver for disabled children, for example). In a similar sense, it seems strange that a caregiver may work past the end of their shift because of a child who has not been picked up. Judging from the graphs, many caregivers work overlapping shifts, and often there is another caregiver with a manageable number of children (compared to the rest of their shift). At least, one would expect that caregivers would offload children to each other.
+
+Each person's census for a given shift appears to have a unimodal or near-unimodal distribution, and each person's peak typically appears around the middle of their shift. In real life, there may very well be more than one peak in the data and at more varied times. For example, one peak in the morning and another peak later in the day could be possible, and the peaks would not seem to depend on the amount of time elapsed in a person's shift (peaks in middle) as it seems to do in the data. For example, seasonal variation and parent work hours would affect these peaks. Along those lines, the average booked hours seem to not vary much across days of the week and month, as we saw in question 2. In real data, there likely would be more busy and less busy days across the month and week.
+
+Finally, there seems to be a lot of children who are being picked up late and forcing the caregiver to work overtime. The frequency ($~18.6\%$ of visits) perhaps is larger than it would be in a real dataset.
+
