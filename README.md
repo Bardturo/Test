@@ -1,1 +1,1 @@
-I have included three three different coding samples from different coding tasks written in R using Rstudio Markdown.
+I have included three three different coding samples written in R using Rstudio Markdown.
