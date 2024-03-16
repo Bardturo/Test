@@ -1,0 +1,546 @@
+---
+title: "\\fontsize{14pt}{3pt}\\selectfont \\textbf{\\textit{Data Task}}"
+author: "\\fontsize{12pt}{3pt}\\selectfont Javier Arturo Bardales"
+date: "\\fontsize{12pt}{3pt}\\selectfont `r Sys.Date()`"
+output:
+  pdf_document:
+    keep_tex: yes
+    fig_caption: yes
+mainfont: Times New Roman
+fontsize: 12pt
+header-includes:
+    \usepackage{fvextra}
+    \DefineVerbatimEnvironment{Highlighting}{Verbatim}{
+      breaksymbolleft={},
+      showspaces = false,
+      showtabs = false,
+      breaklines,
+      commandchars=\\\{\}
+    }
+  \usepackage{geometry}
+  \usepackage{amsmath}
+  \usepackage{subcaption}
+  \usepackage{amssymb}
+  \usepackage{enumitem}
+  \usepackage{fancyhdr}
+  \usepackage{float}
+  \floatplacement{figure}{H}
+  \usepackage{tikz}
+  \usepackage{placeins}
+  \usetikzlibrary{trees}
+  \usepackage{titlesec}
+  \pagestyle{fancy}
+  \usepackage{titling}
+    \pretitle{\begin{flushright}}
+    \posttitle{\end{flushright}}  
+    \preauthor{\begin{flushright}}
+    \postauthor{\end{flushright}}  
+    \predate{\begin{flushright}}
+    \postdate{\end{flushright}}
+    \setlength{\droptitle}{-1.1in}
+---
+
+\vspace{-30pt}
+
+\titlespacing{\section}{0pt}{*4}{*1.5}
+\titlespacing{\subsection}{20pt}{*4}{*1.5}
+\titlespacing{\subsubsection}{40pt}{*4}{*1.5}
+\titlespacing{\subsubsubsection}{60pt}{*4}{*1.5}
+
+```{r, setup, include = F}
+#To run the code in this RMD file, change the file directory in normalizePath() to the directory with the data task CSV files, and install any packages used.
+knitr::opts_knit$set(root.dir = normalizePath("C:/Users/Arturo/Documents/R/data")) #Setting work directory
+knitr::opts_chunk$set(warning = F, message = F, echo = F, tidy = "styler") #Remove code, warnings, messages from pdf
+
+library(ggplot2) #Graphs
+library(tidytable) #Tidy syntax Data management with data.table backend
+library(stringr) #Data management with regex
+library(lubridate) #Date conversion
+library(tinytable) #Tables
+library(modelsummary) #Summary tables
+
+options(scipen = 999) #Prevent scientific notation
+```
+
+```{r, include = F}
+#I borrow a custom ggplot theme by Koundinya Desiraju on rpubs (https://rpubs.com/Koundy/71792)
+theme_Publication <- function(base_size = 12, base_family = "serif") {
+      library(grid)
+      library(ggthemes)
+      (theme_foundation(base_size = base_size, base_family = base_family) #Define size and family of font
+       + theme(plot.title = element_text(face = "bold", #Title characteristics for typeface, size, and horizontal spacing
+                                         size = rel(1.2), hjust = 0.5),
+               text = element_text(), #Text is text
+               panel.background = element_rect(colour = NA), #Define panel background color
+               plot.background = element_rect(colour = NA), #Define plot background color
+               panel.border = element_rect(colour = NA), #Color of panel border
+               axis.title = element_text(face = "bold",size = rel(1)), #Axis title text characteristics, typeface and size
+               axis.title.y = element_text(angle=90,vjust =2), #Y axis title characteristics, angle and vertical spacing
+               axis.title.x = element_text(vjust = -0.2), #X axis title characteristics, vertical spacing
+               axis.text = element_text(), #Axis text is text
+               axis.line = element_line(colour="black"), #Axis lines coloring
+               axis.ticks = element_line(), #Axis ticks are present
+               panel.grid.major = element_line(colour="#f0f0f0"), #Major tick marks are grey
+               panel.grid.minor = element_blank(), #Minor tick marks are removed
+               legend.key = element_rect(colour = NA), #Legend coloring is removed
+               legend.position = "bottom", #Legnd position is bottom of the plot
+               legend.direction = "horizontal", #Legend direction spreads horizontally
+               legend.key.size= unit(0.2, "cm"), #Size of Legend key
+               legend.spacing = unit(0, "cm"), #Spacing of Legend
+               legend.title = element_text(face="italic"), #title of legend, typeface Italics
+               plot.margin=unit(c(10,5,5,5),"mm"), #Margin of plot
+               strip.background=element_rect(colour="#f0f0f0",fill="#f0f0f0"), #Background strips as grey
+               strip.text = element_text(face="bold") #Text strip typeface as bold
+          ))
+      
+}
+```
+
+# Description of the Task
+
+The following is a coding task I have completed for a position's application process. There are three sections which cover different data sets and research questions pertaining to mobility.
+
+# 1 Pandemic Economic Trends
+
+In this first section, we attempt to evaluate the level of employment disparity -- the difference in the level of employment between low and high-wage workers -- in U.S. cities over time since the start of the COVID-19 panedmic. We evaluate two datasets: weekly city-level employment data relative to Jan 4-31 2020 from Paychex, Intuit, Earnin and Kronos and weekly city-level small-business opening and revenue data from Womply.
+
+```{r Data Reading Task 1}
+employment = fread("Employment - City - Weekly.csv") #Load Employment - City - Weekly data
+womply = fread("Womply - City - Weekly.csv") #Load Womply data
+```
+
+Before we begin our analysis, we would like to merge the small-business Womply data and employment data. To do so, we merge by date. Since the day of reporting is different, we round to the nearest Sunday (the reporting day for the the Womply data) in the employment data and merge.
+
+The Womply data is already indexed by each Sunday.
+
+```{r}
+womply = womply %>% 
+  mutate(date = mdy(date)) #converting the date variable to year-month-day date type using lubridate
+```
+
+```{r}
+womply %>% 
+  mutate(weekday = weekdays(date)) %>% #extract the weekday from the date variable
+  group_by(weekday) %>% #Group by weekday
+  count() %>% #check the count of each weekday present in the date variable
+  ungroup() |> 
+  as.data.frame() |> 
+  tt(caption = "Distribution of Weekdays in Womply Data") %>% #Convert to tinytable object and label the table
+  theme_tt(theme = "placement", latex_float = "H")
+```
+
+\FloatBarrier
+
+However, the employment data is all indexed by each Friday. To merge the two data sets, the dates in both data sets must be equivalent for joining. To index by the closest Sunday, the $date$ in the employment data can be offset two days forward. This indexing also makes $date$ in the employment data equivalent to $date$ in the Womply data (already indexed by Sunday). I perform this transformation with the lubridate package so that the days transition appropriately to the next month for Sundays at the end of the month.
+
+```{r}
+# I use lubridate functions to convert the date information into date-type variables
+employment = employment %>% 
+  mutate(date = ymd(paste0(year, "-", month, "-", day))) #Concatenate the year, month, and day variables for one single day variable and convert to a date object using lubridate
+```
+
+```{r}
+employment %>% 
+  mutate(weekday = weekdays(date)) %>% #Extract the weekday of the date
+  group_by(weekday) %>% #Group by weekday
+  count() %>% #check the count of each weekday present in the date variable
+  as.data.frame() |> 
+  tt(caption = "Distribution of Weekdays in Employment Data", latex_float = "H") %>% #Covnert to tinytable object
+  theme_tt(theme = "placement", latex_float = "H") #Print in Latex
+```
+
+\FloatBarrier
+
+```{r}
+employment = employment %>% 
+  mutate(date = date + 2) #Concatenate the year, month, and day variables for one single day variable and convert to a date object using lubridate. Adding 2 changes the date 2 days ahead
+```
+
+After indexing the employment data to the nearest Sunday, the two data sets can be joined using $date$ as well as $cityid$, to ensure each observation matches to the appropriate city and time.
+
+```{r}
+emp_womp = employment %>% 
+  left_join(womply, by = c("date", "cityid")) #Join observations from Womply to the rows of the employment data, since employment data has more rows. Otherwise, observations would be lost if joined the other way around, or using an inner join for instance.
+```
+
+Note that $date$ in my data is equivalent to the $week$ column in the example table from the instructions.
+
+Here is a sample of the data:
+
+```{r, include = F, eval = F}
+tab = emp_womp |> 
+  select(-year, -month, -day) |>
+  select(1, 2, 9, 10, 11) |> 
+  head(4) |> 
+  as.data.frame() |> 
+  tt() |> 
+  theme_tt("striped") |>
+  theme_tt(theme = "placement", latex_float = "H") |> 
+  print("latex", floating = F)
+```
+
+```{=latex}
+\begin{table}[H]
+\centering
+\begin{tblr}{                    
+  colspec={Q[]Q[]Q[]Q[]Q[]Q[]},
+  row{even}={bg=black!5!white},
+}
+\toprule
+City ID & Employment & Employment Above Median & Date & Merchants Opening & $\cdots$ \\ \midrule %% TinyTableHeader
+1 &  0.002080 & 0.01020 & 2020-02-23 & -0.004260 & $\cdots$ \\
+2 & -0.001800 & 0.00375 & 2020-02-23 & -0.000243 & $\cdots$ \\
+3 &  0.002070 & 0.01050 & 2020-02-23 & -0.020600 & $\cdots$ \\
+4 & -0.000427 & 0.00546 & 2020-02-23 & -0.002630 & $\cdots$ \\
+\bottomrule
+\end{tblr}
+\end{table} 
+```
+
+
+## 1.
+
+For 1, we would like to find the fraction of city-weeks present in both data sets.
+
+Because the date variables have been converted to date-type, the time period can be filtered with less than or greater than operators to only observe the desired period.
+
+```{r}
+emp_womp = emp_womp %>% 
+  filter(date >= "2020-02-23" & date <= "2021-12-31") #Date is greater than or equal to the starting date and less than or equal to the end date. All observations with dates outside the period will be filtered out.
+```
+
+To check the number of shared city-weeks between data sets, I create a variable merging the information in $date$ and $cityid$. This $cityweek$ variable uniquely identifies all observations in both data sets. Filtering the time for both data sets and comparing $cityweek$ should provide an estimate for the number of cityweeks present in both data sets.
+
+Using this comparison, I find that no cityweek is present in one data set and not the other, so $100\%$ of cityweeks in the merged data are present in both data sets.
+
+```{r, include = F}
+cityweek_tfilter = function(x) x %>% mutate(cityweek = paste(cityid, date)) %>% filter(date >= "2020-02-23" & date <= "2021-12-31") #function that concatenates the cityid and date variables. 
+
+#Note that cityweek uniquely identifies each observation.
+  employment %>% cityweek_tfilter() %>% distinct(cityweek) %>% nrow() == employment %>% cityweek_tfilter() %>% nrow() #I apply the cityweek_filter function to the employment data and check the number of rows in the dataset of only   unique cityweek values and compare it to the same employment dataset filtered but possibly with duplicate cityweek values. This returns TRUE.
+  womply %>% cityweek_tfilter() %>% distinct(cityweek) %>% nrow() == womply %>% cityweek_tfilter() %>% nrow() #I apply the cityweek_filter function to the employment data and check the number of rows in the dataset of only          unique cityweek values and compare it to the same employment dataset filtered but possibly with duplicate cityweek values. This returns TRUE.
+
+emp_cityweek = employment %>% cityweek_tfilter() %>% pull(cityweek) #Pull the cityweek variable from the employment data
+womp_cityweek = womply %>% cityweek_tfilter() %>% pull(cityweek) #Pull the cityweek variable from the womply data
+
+sum(emp_cityweek != womp_cityweek) #Number of observations where the cityweek is unequal between the two data sets. TRUE is added up as a 1; FALSE counts as 0. If I wanted to be more thorough, I could separately check whether any values of cityweek in employment are in the womply data and then whether any values of cityweek in the womply data are in employment. However, since the two vectors are exactly the same, I can safely assume that no cityweeks were excluded from the merged data and that the datasets comprise the same cityweeks.
+
+#Alternatively, I could use inner and full joins and look at the comparative number of rows...
+```
+
+## 2.
+
+For 2, we would like to: (1) calculate the difference between employment levels for workers in the top and bottom quartiles of the income distribution, termed employment disparity", (2) categorize cities as above and below the median employment disparity on March 1, 2020, and (3) plot the mean employment disparity for both types of city across time.
+
+Employment disparity can be defined as the difference between $emp\_incq4$ and $emp\_inc1$, which represent employment levels for workers in the top and bottom income quartiles, respectively. $$emp\_disp = emp\_incq4 - emp\_incq1$$
+
+$emp\_disp$ is my variable for employment disparity. Negative values imply employees in the top income quartile have lower employment levels than those in the bottom income quartile, and positive values imply the reverse.
+
+```{r}
+emp_womp = emp_womp %>% 
+  mutate(emp_disp = emp_incq4 - emp_incq1) #Taking the difference between employment level in the top and bottom income quartiles
+```
+
+Since March 1, 2020 is a Sunday, applying summary transformations to employment disparity on rows with dates equal to March 1, 2020 should should be sufficient (no other transformation or date checking required). 
+
+I take the median of the national distribution of cities (which I presume is the median of all the cities present in the data set) on March 1, 2020 and create a binary variable ($emp\_dispabovemed$) checking whether each city's employment disparity strictly exceeds the median.
+$$emp\_dispabovemed = 1(emp\_disp \ge median(emp\_disp))$$
+Cities with an employment disparity equal to or below the median are coded as zero. The two groups are mutually exclusive. Depending on how many cities had an employment disparity equal to the median, this definition would affect results compared to a strategy which creates two binary variables like $1(emp\_disp \geq median(emp\_disp))$ and $1(emp\_disp \leq median(emp\_disp))$.
+
+```{r}
+median_emp_disp = emp_womp %>% #Median employment disparity on March 1, 2020
+  filter(date == "2020-03-01") %>% #Filter date to March 1, 2020
+  pull(emp_disp) %>% #Pull employment disparity as a vector
+  median #Take the median of this employment disparity vector
+```
+
+Fortunately, there is only one observation with a employment disparity equal to the median (no bunching of values at the median).
+
+```{r, include = F}
+emp_womp %>% 
+  filter(date == "2020-03-01" & emp_disp == median_emp_disp) %>% 
+  nrow()
+```
+
+
+```{r}
+emp_womp = emp_womp %>% 
+  group_by(cityid) %>% #Group by cityid
+  mutate(emp_dispabovemed = ifelse(emp_disp[date == "2020-03-01"] > median_emp_disp, 1, 0)) #Define the binary variable by comparing employment disparity when date was equal to March 1, 2020 to the median on that same day. Since I am grouping by cityid, I do this separately for each city.
+#Since, as was noted before, city & date uniquely identify each observation, I do not have to worry about multiple rows for the same city having the same date, which would affect our binary variable calculation.
+```
+
+With the new binary variable, the mean employment disparity can be calculated for each week in each type of city, which is graphed below.
+
+```{r, fig.cap = "Mean Employment Disparity", fig.height = 4}
+emp_womp = emp_womp %>% 
+  group_by(date, emp_dispabovemed) %>% #Group by date
+  mutate(mean_emp_disp = mean(emp_disp)) #Calculate the conditional mean employment disparity. The mean is calculated for each date and type of city.
+
+ggplot(emp_womp) +
+  aes(x = date, y = mean_emp_disp, group = emp_dispabovemed, color = as.factor(emp_dispabovemed)) + #Set aesthetics of the graph. Let x be date, y be mean employment disparity, and group/color values based on city type (above or below median employment disparity on March 1, 2020)
+  geom_line() + #Call a line plot using the previous aesthetics
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") + #Scale x axis to just show the month
+  scale_color_manual(name = "City Type", #Set name of color legend
+                     values = c("#36BAA8", "#F9A422"), #Set colors of graph
+                     labels = c("Below Median on March 1, 2020", "Above Median on March 1, 2020")) + #Set labels in color legend
+  theme_Publication() + #Set to custom ggplot theme
+  theme(axis.text.x = element_text( size = 9), #Remove gridlines and make x axis text smaller, so nothing overlaps
+        panel.grid.major = element_blank()) +
+  labs(y = "Employment Disparity", #Set y axis title
+       x = "Date", #Set x axis title
+       color = "City Type", #Set name of color
+       caption = paste0("Above Median n = ", sum(!is.na(emp_womp$mean_emp_disp) & emp_womp$emp_dispabovemed == 1), "\n", #Set caption with sample sizes
+                        "Below Median n = ", sum(!is.na(emp_womp$mean_emp_disp) & emp_womp$emp_dispabovemed == 0))) +
+  scale_x_date(date_breaks = "1 month", #Change x axis again to include year when new year starts
+                labels = function(x) if_else(is.na(lag(x)) | !year(lag(x)) == year(x), 
+                                             paste(month(x, label = TRUE), "\n", year(x)), 
+                                             paste(month(x, label = TRUE)))) 
+```
+
+\FloatBarrier
+
+On average, cities with higher early March 2020 employment disparities indeed had higher employment disparities throughout the pandemic than cities that experienced lower early March 2020 employment disparities
+
+## 3.
+
+For 3, we would like to evaluate the feasibility of small business permit requirements as an instrumental variable to find the LATE effect of small business openings on employment disparity.
+
+I assume "small business permit requirements" refers to the minimum number of small business permit requirements needed to open a small business in a particular city, regardless of the type of business. The true number of permit requirements a business needs may vary because of occupation and business type.
+
+### (a) Independence/exogeneity of the instrument
+
+If small business permit requirements satisfied independence, then cities would essentially receive their minimum permit requirements at random or approximately randomly. This scenario seems extremely unlikely -- the number of permit requirements would likely be influenced by a city's political leaning or policy agenda, which would affect other small business and labor policies and hence employment disparity. For example, a city with high permit requirements may have more PPP money to give businesses (that hire low wage labor) during the pandemic, which they may use to retain more employees. If these other factors were known and could be controlled for, then the IV could have more validity.
+
+### (b) Exclusion restriction
+
+If small business permit requirements satisfied the exclusion restriction, then the minimum number of permit requirements in a city would not affect employment disparity except through its effect on the number of small business openings. Small business permit requirements plausibly satisfies this assumption as businesses with low-wage workers likely would not hire differently based on these minimum permit requirements compared to businesses hiring high-wage workers.
+
+### (c) Monotonicity
+
+Small business permit requirements plausibly satisfies monotonicity since a larger minimum number of permit requirements for a city is likely associated with a higher barrier for entry and fewer small business openings, and vice-versa. 
+
+# 2 Binned Scatter Plots
+
+In this section, we would like to analyze the relationship between the percent of single-parent households and future earnings at the county-level across the U.S. The data was constructed from 2000 and 2010 decennial U.S. census data linked to federal income tax returns and data from 2005-2015 American Community surveys.
+
+Our outcomes and covariates are separated in different files. We must merge them together.
+
+```{r Data Reading Task 2}
+outcomes = fread("county_outcomes.csv") #Load county outcomes
+covariates = fread("cty_covariates.csv") #Load county covariates
+```
+
+To merge the two data sets and only keep counties in present in both, I use an inner_join.
+
+```{r}
+county = outcomes %>% 
+  inner_join(covariates, by = c("state", "county")) #I join the data sets by state and county codes (2010 FIPS) which uniquely identify each county. I use an inner join which only retains rows with the state and county combinations present in both datasets.
+```
+
+## 1.
+
+In 1, we would like to create an unweighted binned scatter plot between single-parent share in a county and average future family income for white and black kids in the county with parents at the 25th percentile of the national income distribution. We would like to create this scatterplot without a package that does most of the work.
+
+I create a vigintile (cut up into 20) variable for both X and Y variables.
+
+```{r}
+county = county %>%
+  mutate(across(c(kfr_white_pooled_p25, kfr_black_pooled_p25), #Across the two selected columns (white and black children with parents at 25th income percentile), split up the variable into 20 bins. The resulting variable has a number 1-20 that labels which bin (vigintile) the value is in.
+                ~dplyr::ntile(., 20),
+                .names = "{.col}_20"))
+```
+
+
+```{r}
+#Function that takes in a variable name from county and pulls out its average for a given race variable bin. Option for weighted mean.
+bin_mean = function(var, weighted = F, binner = NULL){
+  if(binner == "black"){
+      var_vig = sym("kfr_black_pooled_p25_20") #Obtain object of race variable inputted with _20 appended
+  } else if(binner == "white"){
+      var_vig = sym("kfr_white_pooled_p25_20") #Obtain object of race variable inputted with _20 appended
+  }
+
+  if(weighted == F){ #check if weighted option selected
+  county %>%
+    drop_na(!!var_vig) %>% #Drop observations where the binning variable is missing
+    group_by(!!var_vig) %>% #Group by the binning variable
+    summarize(mean = mean({{var}}, na.rm = T)) %>% #for each binning variable, calculate the mean
+    pull(mean) %>% #Pull the mean as a vector
+    return()
+  } else if(weighted == T){ #check if weighted option selected
+    county %>%
+      drop_na(!!var_vig) %>% #Drop observations where the binning variable is missing
+      group_by(!!var_vig) %>% #Group by the binning variable
+      summarize(mean = weighted.mean(x = {{var}}, w = dplyr::coalesce(kid_pooled_pooled_n, 0), na.rm = T)) %>% #for each binning variable, calculate the weighted mean, using the number of children in the county as a weight
+    pull(mean) %>% #Pull the weighted mean as a vector
+      return()
+  }
+}
+
+#Function that makes a binned scatterplot using bin averages from bin_mean for single parent share and black and white kids average future earnings (parents at 25th percentile income distribution)
+binnedplot = function(weighted = F){
+  #Define X and Y
+  x_b = bin_mean(var = singleparent_share2000, binner = "black", weighted = weighted) #Get averages for each of the 20 black bins. Possibly Weighted
+  x_w = bin_mean(var = singleparent_share2000, binner = "white", weighted = weighted) #Get averages for each of the 20 white bins
+  y_b = bin_mean(var = kfr_black_pooled_p25, binner = "black", weighted = weighted) #Get averages for each of the 20 black bins
+  y_w = bin_mean(var = kfr_white_pooled_p25, binner = "white", weighted = weighted) #Get averages for each of the 20 white bins
+  
+  #Define ggplot object
+  binned = ggplot() +
+    geom_line(aes(x = x_b,
+                  y = y_b,
+                  color = "Black")) + #Call line plot with average black values. Assign to color group "Black"
+    geom_line(aes(x = x_w,
+                  y = y_w,
+                  color = "White")) + #Call line plot with average white values. Assign to color group "White"
+    geom_point(aes(x = x_b,
+                   y = y_b,
+                   color = "Black"),
+               shape = 15) + #Call scatter plot with average black values, square shape, and assign to color group "Black"
+    geom_point(aes(x = x_w,
+                   y = y_w,
+                   color = "White"), shape = 17) + #Call scatter plot with average black values, square shape, and assign to color group "White"
+    scale_color_manual(name = "Race", 
+                       values = c("Black" = "#FF7F00", "White" = "#1A476F")) + #Set the name and colors of the Race grouping variable
+    labs(y = "Future Family Income", #Set y axis title
+         x = "Share of Single Parents", #Set x axis title
+         caption = paste0("Black N = ", format(sum(!is.na(county$kfr_black_pooled_p25)), big.mark = ","), ", ", "Black Corr. = ", format(cor(county$kfr_black_pooled_p25, county$singleparent_share2000, use="complete.obs"), big.mark = ",", digits = 2), "\n",
+                          "White N = ", format(sum(!is.na(county$kfr_white_pooled_p25)), big.mark = ","), ", ", "White Corr. = ", format(cor(county$kfr_white_pooled_p25, county$singleparent_share2000, use="complete.obs"), big.mark = ",", digits = 2))) +
+    theme_Publication() + #Call custom ggplot theme
+    theme(plot.title = element_text(size = 15))
+  
+  #Change output based on whether weighting is desired
+  if(weighted == T){ #Change output based on whether weighted is true or false. If TRUE, supply weighted linear fits to graph. If FALSE, supply unweighted linear fits to graph
+         binned +
+           geom_smooth(aes(x = county$singleparent_share2000, y = county$kfr_white_pooled_p25, color = "White", weight = county$kid_pooled_pooled_n), method = "lm") + #Call linear model for black children average future family income. Weighted by number of children in county.
+           geom_smooth(aes(x = county$singleparent_share2000, y = county$kfr_black_pooled_p25, color = "Black", weight = county$kid_pooled_pooled_n), method = "lm") #Call linear model for white children average future family income. Weighted by number of children in county.
+  } else if(weighted == F){
+         binned +
+           geom_smooth(aes(x = county$singleparent_share2000, y = county$kfr_white_pooled_p25, color = "White"), method = "lm") + #Call linear model for black children average future family income
+           geom_smooth(aes(x = county$singleparent_share2000, y = county$kfr_black_pooled_p25, color = "Black"), method = "lm") #Call linear model for white children average future family income
+  }
+}
+```
+
+I report the Pearson correlation coefficient for each graph between the two underlying variables.
+
+```{r, fig.cap = "Unweighted Mean of Future Family Income for\n Children of Parents at the 25th National Income Percentile", fig.height = 3.5}
+binnedplot()
+```
+
+\FloatBarrier
+
+```{r, fig.cap = "Unweighted Mean of Future Family Income for\n Children of Parents at the 25th National Income Percentile Zoomed", fig.height = 4}
+binnedplot() +
+  coord_cartesian(xlim = c(0.18, 0.33)) #Zoom into ggplot graph by limiting x axis to between 0.18 and 0.33
+```
+
+
+\FloatBarrier
+
+## 2.
+
+In 2, we would like to replicate the plots in 1 but using the number of each children in a county as weights.
+
+Refer to part 1 of this question for details on the functions used to create these figures. Note that missing weights are treated as zero. I weighted both the averages of future family income variables and the averages of the shares of single parents.
+
+```{r, fig.cap = "Weighted Mean of Future Family Income for\n Children of Parents at the 25th National Income Percentile", fig.height = 3.4}
+binnedplot(weighted = T)
+```
+
+\FloatBarrier
+
+```{r, fig.cap = "Weighted Mean of Future Family Income for\n Children of Parents at the 25th National Income Percentile Zoomed", fig.height = 3.5}
+binnedplot(weighted = T) +
+  coord_cartesian(xlim = c(0.17, 0.33)) #Zoom into ggplot graph by limiting x axis to between 0.15 and 0.33
+```
+
+\FloatBarrier
+
+## 3.
+
+Let's discuss the value of weighing the scatterplot in 2 with the number of children in each county.
+
+Weighing the binscatter with the number of children could provide a more accurate and relevant analysis of the relationship between counties' single-parent share and future family income. The weighted average is likely a less biased approximation of the true population average for future family income and county single-parent shares, allowing for more justifiable extrapolation from the graph to other populations outside the sample.
+
+For example, suppose no weights are used. If one county had an extremely low average future family income, but this county also contained the most number of children living there, the average future family income would likely be overestimated, as well as the quality of life and opportunities available for children of the county in that bin (and similar counties outside the sample). The unweighted average can conceal potential differences in children's ability or future ability to generate earnings, by under- and over-stating different types of counties' mobility.
+
+Specifically in the data, it does appears that more white children are better off than what the unweighted graphs showed, and racial disparities in future family income are larger than what an unweighted estimate would suggest. For black children in counties with relatively higher rates of single parents, future family income seems to be more depressed than without the weights. Hence, the weights better reflect the equitable circumstances and well-being of the population.
+
+Still, the average future earnings was not calculated among the current number of children, so the actual impact of these weights on the asymptotic bias is not necessarily clear.
+
+\clearpage
+
+# 3 College Characteristics
+
+In this section, we would like to explore the relationship between mobility and higher income achievement and university major and tuition characteristics. Specifically, we would like to analyze the determinants of, among those who have parents with income in the bottom income quintile, the percent of students who eventually earn an income level at the top quintile.
+
+The data is from the Department of Education's IPEDS database in 200 and 2013, the College Scorecard, and various estimates of parent and child income by college from different sources. The data is at the college-level.
+
+```{r Data Reading Task 3}
+college_est = fread("Preferred Estimates of Access and Mobility Rates by College.csv") #Load estimates data
+college_char = fread("College Level Characteristics.csv") #Load colle characteristics data
+```
+
+```{r}
+college = college_est %>% 
+  inner_join(college_char, by = c("super_opeid"), keep = F, suffix = c("", "REMOVEME")) %>%  #I join the data sets by Institution OPEID I use an inner join which only retains rows with colleges present in both datasets. I add the suffix "REMOVEME" for duplicate columns since both dataframes contain some of the same variables.
+  select(-ends_with("REMOVEME")) #I remove the columns with the suffix "REMOVEME". I no longer have duplicate columns.
+```
+
+## 1.
+
+Let's define the percent of students with parents in the bottom income quintile who reach the top income quintile as the mobility rate.
+
+In 1, we would like to the following regression: mobility rate regressed on tuition in 2000, tuition in 2013, share of students with major in the arts and humanities, share of students with a business major, share of students with a STEM major, share of students with a social science major, Colleg Scorecard median earnings, and the percent of sutdents graduating within 150% of normal time in 2002. We would like to run this regression twice, separately modeling the effect for private and public universities. Reported standard errors are not robust to heteroskedasticity or serial correlation.
+
+```{r}
+#First, I will rename the relevant columns for intuitive display in the regression tables.
+college = college %>% 
+  rename('Mobility Rate' = mr_kq5_pq1,
+         'Tuition Sticker Price 2000' = sticker_price_2000,
+         'Tuition Sticker Price 2013' = sticker_price_2013,
+         'Arts and Humanities Major Share 2000' = pct_arthuman_2000,
+         'Business Major Share 2000' = pct_business_2000,
+         'STEM Major Share 2000' = pct_stem_2000,
+         'Social Science Major Share 2000' = pct_socialscience_2000,
+         'Scorecard Median Earnings 2011' = scorecard_median_earnings_2011,
+         'Percent of Students Graduating Within 150% of Normal Time in 2002' = grad_rate_150_p_2002)
+```
+
+
+```{r}
+#I split the dataframe into two based on public/private status
+splits_college = college %>% 
+  split(., .$public)
+```
+
+
+```{r}
+private_model = lm(`Mobility Rate` ~ `Tuition Sticker Price 2000` + `Tuition Sticker Price 2013` + `Arts and Humanities Major Share 2000` + `Business Major Share 2000` + `STEM Major Share 2000` + `Social Science Major Share 2000` + `Scorecard Median Earnings 2011` + `Percent of Students Graduating Within 150% of Normal Time in 2002`, weights = count, data = splits_college[[1]]) #Linear regression model for private schools with all desired terms. Weighted by `count` -- average number of children per cohort
+
+public_model = lm(`Mobility Rate` ~ `Tuition Sticker Price 2000` + `Tuition Sticker Price 2013` + `Arts and Humanities Major Share 2000` + `Business Major Share 2000` + `STEM Major Share 2000` + `Social Science Major Share 2000` + `Scorecard Median Earnings 2011` + `Percent of Students Graduating Within 150% of Normal Time in 2002`, weights = count, data = splits_college[[2]]) #Linear regression model for public schools with all desired terms. Weighted by `count` -- average number of children per cohort
+```
+
+```{r, results = "asis"}
+modelsummary(private_model, stars = T, output = "kableExtra", caption = "Determinants of Mobility Rate in Private School", fmt = 4) %>% 
+  kableExtra::kable_styling(latex_options = "HOLD_position")
+```
+
+\FloatBarrier
+
+```{r, results = "asis"}
+modelsummary(public_model, stars = T, output = "kableExtra", caption = "Determinants of Mobility Rate in Public School", fmt = 4) %>% 
+  kableExtra::kable_styling(latex_options = "HOLD_position")
+```
+
+## 2.
+
+Let's analyze the regression tables we generated in 1.
+
+In the public school regression, four terms are significant at the $0.001$ significance level. In the private school regression, six terms are significant at the $0.01$ significance level.
+
+For private institutions, the share of students who are majors in STEM fields has a small, positive and strongly significant relationship with mobility rate. A $1\%$ increase in the share of STEM majors results in a $0.0001$ increase in the likelihood that students, whose parents belong to the bottom income quintile, will reach the top income quintile. This seems reasonable: STEM majors typically earn more money than most other majors, and so an increase in the likelihood of having a major that earns more money increases the likelihood that a random student, whose parents are in the bottom income quintile, achieves an income high enough which gets them to the top $20\%$.
+
+For public institutions, the share of students who are majors in STEM fields has no statistically significant relationship with mobility rate. If the term were statistically significant, a $1\%$ increase in the share of STEM majors would result in a $0.0001$ decrease in the likelihood that students, whose parents belong to the bottom income quintile, will reach the top income quintile. It seems likely that, due to the competitive job market, the private school effects of STEM major share may take away from the relationship in public institutions. Public school graduates may have a tougher time competing with private school graduates and reaping the same benefits from having a STEM major.
